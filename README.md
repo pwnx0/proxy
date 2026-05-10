@@ -28,9 +28,9 @@ https://raw.githubusercontent.com/example/repo/main/socks5.txt
 
 The checker infers the proxy type from the source URL or the proxy line. If no type is visible, it tests the proxy as both HTTP and HTTPS.
 
-The working lists use strict multi-endpoint filtering by default: `MIN_SUCCESSES=3`, so a proxy must pass three independent live requests before it is written to `proxies/http.txt`, `proxies/https.txt`, `proxies/socks4.txt`, or `proxies/socks5.txt`. Each run samples up to `50,000` candidates with balanced HTTP/HTTPS/SOCKS4/SOCKS5 coverage.
+The working lists use strict multi-endpoint filtering by default: `MIN_SUCCESSES=3`, so a proxy must pass three independent live requests before it is written to `proxies/http.txt`, `proxies/https.txt`, `proxies/socks4.txt`, or `proxies/socks5.txt`. Each run samples up to `50,000` candidates with balanced HTTP/HTTPS/SOCKS4/SOCKS5 coverage and a daily rotating sample seed, so it does not test the same sorted slice forever.
 
-For crypto bots, start with `proxies/https.txt` and pass those proxies as `http://host:port` unless your bot specifically documents `https://` proxy URLs. To make validation closer to your bot target, set `BOT_TEST_URLS` in the workflow to comma-separated HTTPS endpoints from the services you need to reach.
+For crypto bots, start with `proxies/https.txt` and pass those proxies as `http://host:port` unless your bot specifically documents `https://` proxy URLs. To make validation closer to your bot target, set `BOT_TEST_URLS` in the workflow to comma-separated HTTPS endpoints from the services you need to reach. When `BOT_TEST_URLS` is set, HTTPS and SOCKS proxies must pass at least one bot target URL in addition to the normal minimum success count.
 
 The default sources currently include raw lists from:
 

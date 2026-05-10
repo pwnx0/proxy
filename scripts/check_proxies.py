@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import random
 import ipaddress
 import json
 import os
@@ -27,11 +28,19 @@ CHECK_TIMEOUT = int(os.getenv("CHECK_TIMEOUT", "8"))
 CONCURRENCY = int(os.getenv("CONCURRENCY", "250"))
 MAX_PROXIES_PER_RUN = int(os.getenv("MAX_PROXIES_PER_RUN", "50000"))
 MIN_SUCCESSES = max(1, int(os.getenv("MIN_SUCCESSES", "3")))
+SAMPLE_SEED = os.getenv("SAMPLE_SEED") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 USER_AGENT = "dare131-proxy-checker/1.0"
 
 
 def env_urls(name: str, default: str) -> list[str]:
-    return [url.strip() for url in os.getenv(name, default).split(",") if url.strip()]
+    seen = set()
+    urls = []
+    for url in os.getenv(name, default).split(","):
+        normalized = url.strip()
+        if normalized and normalized not in seen:
+            urls.append(normalized)
+            seen.add(normalized)
+    return urls
 
 
 HTTP_TEST_URLS = env_urls(
@@ -160,6 +169,9 @@ async def load_candidates(urls: Iterable[str]) -> list[Candidate]:
     for candidate in ordered:
         groups.setdefault(candidate.kind, []).append(candidate)
 
+    for kind, values in groups.items():
+        random.Random(f"{SAMPLE_SEED}:{kind}").shuffle(values)
+
     per_kind = max(1, MAX_PROXIES_PER_RUN // len(categories))
     selected: list[Candidate] = []
     selected_set: set[Candidate] = set()
@@ -168,7 +180,9 @@ async def load_candidates(urls: Iterable[str]) -> list[Candidate]:
             selected.append(candidate)
             selected_set.add(candidate)
 
-    for candidate in ordered:
+    remainder = [candidate for values in groups.values() for candidate in values]
+    random.Random(f"{SAMPLE_SEED}:remainder").shuffle(remainder)
+    for candidate in remainder:
         if len(selected) >= MAX_PROXIES_PER_RUN:
             break
         if candidate not in selected_set:
@@ -176,53 +190,63 @@ async def load_candidates(urls: Iterable[str]) -> list[Candidate]:
             selected_set.add(candidate)
 
     limited = sorted(selected, key=lambda item: (item.kind, item.host, item.port, item.username or ""))
-    print(f"limiting candidates from {len(ordered)} to {len(limited)} with balanced type sampling")
+    print(f"limiting candidates from {len(ordered)} to {len(limited)} with balanced type sampling seed {SAMPLE_SEED}")
     return limited
 
 
+async def check_with_session(
+    session: aiohttp.ClientSession,
+    target_urls: list[str],
+    *,
+    proxy_url: str | None = None,
+    require_bot_success: bool = False,
+) -> bool:
+    successes = 0
+    bot_success = not require_bot_success
+    for index, target_url in enumerate(target_urls):
+        try:
+            async with session.get(target_url, proxy=proxy_url, allow_redirects=False) as response:
+                if 200 <= response.status < 400:
+                    successes += 1
+                    if target_url in BOT_TEST_URLS:
+                        bot_success = True
+                    if successes >= MIN_SUCCESSES and bot_success:
+                        return True
+        except Exception:
+            pass
+        remaining = len(target_urls) - index - 1
+        if successes + remaining < MIN_SUCCESSES:
+            return False
+    return successes >= MIN_SUCCESSES and bot_success
+
+
 async def check_http(candidate: Candidate) -> bool:
-    target_urls = HTTPS_TEST_URLS + BOT_TEST_URLS if candidate.kind == "https" else HTTP_TEST_URLS
+    target_urls = BOT_TEST_URLS + HTTPS_TEST_URLS if candidate.kind == "https" else HTTP_TEST_URLS
     timeout = ClientTimeout(total=CHECK_TIMEOUT, connect=CHECK_TIMEOUT)
     connector = aiohttp.TCPConnector(limit=1, ssl=False)
-    successes = 0
     try:
         async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-            for index, target_url in enumerate(target_urls):
-                try:
-                    async with session.get(target_url, proxy=candidate.proxy_url(), allow_redirects=False) as response:
-                        if 200 <= response.status < 400:
-                            successes += 1
-                            if successes >= MIN_SUCCESSES:
-                                return True
-                except Exception:
-                    pass
-                remaining = len(target_urls) - index - 1
-                if successes + remaining < MIN_SUCCESSES:
-                    return False
-            return False
+            return await check_with_session(
+                session,
+                target_urls,
+                proxy_url=candidate.proxy_url(),
+                require_bot_success=candidate.kind == "https" and bool(BOT_TEST_URLS),
+            )
     except Exception:
         return False
 
 
 async def check_socks(candidate: Candidate) -> bool:
     timeout = ClientTimeout(total=CHECK_TIMEOUT, connect=CHECK_TIMEOUT)
-    successes = 0
+    target_urls = BOT_TEST_URLS + HTTPS_TEST_URLS
     try:
         connector = ProxyConnector.from_url(candidate.proxy_url(), rdns=True)
         async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-            for index, target_url in enumerate(HTTP_TEST_URLS):
-                try:
-                    async with session.get(target_url, allow_redirects=False) as response:
-                        if 200 <= response.status < 400:
-                            successes += 1
-                            if successes >= MIN_SUCCESSES:
-                                return True
-                except Exception:
-                    pass
-                remaining = len(HTTP_TEST_URLS) - index - 1
-                if successes + remaining < MIN_SUCCESSES:
-                    return False
-            return False
+            return await check_with_session(
+                session,
+                target_urls,
+                require_bot_success=bool(BOT_TEST_URLS),
+            )
     except Exception:
         return False
 
@@ -260,6 +284,7 @@ def write_outputs(results: dict[str, list[str]], total_candidates: int) -> None:
             "checkTimeoutSeconds": CHECK_TIMEOUT,
             "maxProxiesPerRun": MAX_PROXIES_PER_RUN,
             "minSuccesses": MIN_SUCCESSES,
+            "sampleSeed": SAMPLE_SEED,
             "httpTestUrls": HTTP_TEST_URLS,
             "httpsTestUrls": HTTPS_TEST_URLS,
             "botTestUrls": BOT_TEST_URLS,
