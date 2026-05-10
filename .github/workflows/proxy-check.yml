@@ -1,0 +1,52 @@
+name: Check working proxies
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every 24 hours. With timeout-minutes: 12 this is at most about
+    # 360 runner minutes in a 30-day month.
+    - cron: "17 2 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: proxy-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Fetch and check proxies
+        env:
+          CONCURRENCY: "250"
+          CHECK_TIMEOUT: "8"
+          FETCH_TIMEOUT: "20"
+          MAX_PROXIES_PER_RUN: "12000"
+        run: python scripts/check_proxies.py
+
+      - name: Commit updated proxy lists
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add proxies/*.txt proxies/stats.json
+          if git diff --cached --quiet; then
+            echo "No proxy output changes to commit."
+          else
+            git commit -m "Update working proxies"
+            git push
+          fi
