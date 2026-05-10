@@ -3,8 +3,8 @@ name: Check working proxies
 on:
   workflow_dispatch:
   schedule:
-    # Every 24 hours. With timeout-minutes: 12 this is at most about
-    # 360 runner minutes in a 30-day month.
+    # Every 24 hours. With timeout-minutes: 30 this is at most about
+    # 900 runner minutes in a 30-day month.
     - cron: "17 2 * * *"
 
 permissions:
@@ -20,10 +20,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
@@ -34,10 +34,15 @@ jobs:
       - name: Fetch and check proxies
         env:
           CONCURRENCY: "250"
-          CHECK_TIMEOUT: "8"
+          CHECK_TIMEOUT: "6"
           FETCH_TIMEOUT: "20"
           MAX_PROXIES_PER_RUN: "12000"
         run: python scripts/check_proxies.py
+
+      - name: Show generated proxy counts
+        run: |
+          wc -l proxies/http.txt proxies/https.txt proxies/socks4.txt proxies/socks5.txt proxies/mixed.txt
+          cat proxies/stats.json
 
       - name: Commit updated proxy lists
         run: |

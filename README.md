@@ -15,7 +15,7 @@ Scheduled working proxy lists for HTTP, HTTPS, SOCKS4, and SOCKS5 with a Vercel-
   - `proxies/stats.json`
 - The frontend reads the latest files directly from GitHub raw URLs, so the Vercel page stays current after the action commits new output.
 
-The workflow is capped with `timeout-minutes: 12` and runs every 24 hours. That is about 30 runs per 30-day month and at most about 360 runner minutes, which stays far below the common 2,000-minute private repository allowance. Public repositories normally receive free GitHub-hosted Actions minutes, but the timeout still prevents surprise usage.
+The workflow is capped with `timeout-minutes: 30` and runs every 24 hours. That is about 30 runs per 30-day month and at most about 900 runner minutes, which stays below the common 2,000-minute private repository allowance. Public repositories normally receive free GitHub-hosted Actions minutes, but the timeout still prevents surprise usage.
 
 ## Add Proxy Sources
 
