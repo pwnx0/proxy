@@ -21,6 +21,7 @@ from aiohttp_socks import ProxyConnector
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_FILE = ROOT / "proxy.txt"
 OUTPUT_DIR = ROOT / "proxies"
+SOURCE_OUTPUT_DIR = OUTPUT_DIR / "source"
 HTTP_TEST_URL = os.getenv("HTTP_TEST_URL", "http://httpbin.org/ip")
 HTTPS_TEST_URL = os.getenv("HTTPS_TEST_URL", "https://api.ipify.org?format=json")
 FETCH_TIMEOUT = int(os.getenv("FETCH_TIMEOUT", "20"))
@@ -203,12 +204,35 @@ def write_outputs(results: dict[str, list[str]], total_candidates: int) -> None:
     (OUTPUT_DIR / "stats.json").write_text(json.dumps(stats, indent=2) + "\n", encoding="utf-8")
 
 
+def write_source_candidates(candidates: list[Candidate]) -> dict[str, int]:
+    SOURCE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    categories = ["http", "https", "socks4", "socks5"]
+    by_kind: dict[str, list[str]] = {kind: [] for kind in categories}
+    for candidate in candidates:
+        if candidate.kind in by_kind:
+            by_kind[candidate.kind].append(candidate.output_line)
+
+    counts = {}
+    for kind in categories:
+        values = sorted(set(by_kind[kind]))
+        counts[kind] = len(values)
+        (SOURCE_OUTPUT_DIR / f"{kind}.txt").write_text("\n".join(values) + ("\n" if values else ""), encoding="utf-8")
+    mixed = sorted(set().union(*(set(by_kind[kind]) for kind in categories)))
+    counts["mixed"] = len(mixed)
+    (SOURCE_OUTPUT_DIR / "mixed.txt").write_text("\n".join(mixed) + ("\n" if mixed else ""), encoding="utf-8")
+    return counts
+
+
 async def async_main(args: argparse.Namespace) -> None:
     urls = source_urls(args.sources)
     if not urls:
         raise SystemExit("proxy.txt does not contain any source URLs")
     candidates = await load_candidates(urls)
     print(f"loaded {len(candidates)} candidates from {len(urls)} sources")
+    source_counts = write_source_candidates(candidates)
+    print("source candidates:", source_counts)
+    if not candidates:
+        raise SystemExit("No proxy candidates were loaded. Check source URLs or GitHub raw network access.")
     results = await check_all(candidates)
     write_outputs(results, len(candidates))
     print("working:", {key: len(value) for key, value in results.items()})

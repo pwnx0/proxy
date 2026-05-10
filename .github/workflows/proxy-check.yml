@@ -40,10 +40,13 @@ jobs:
           CHECK_TIMEOUT: "6"
           FETCH_TIMEOUT: "20"
           MAX_PROXIES_PER_RUN: "12000"
-        run: python scripts/check_proxies.py
+        run: python -u scripts/check_proxies.py
 
       - name: Show generated proxy counts
         run: |
+          echo "Source candidate counts:"
+          wc -l proxies/source/http.txt proxies/source/https.txt proxies/source/socks4.txt proxies/source/socks5.txt proxies/source/mixed.txt
+          echo "Working proxy counts:"
           wc -l proxies/http.txt proxies/https.txt proxies/socks4.txt proxies/socks5.txt proxies/mixed.txt
           cat proxies/stats.json
 
@@ -51,7 +54,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add proxies/*.txt proxies/stats.json
+          git add proxies
+          git status --short
           if git diff --cached --quiet; then
             echo "No proxy output changes to commit."
           else
