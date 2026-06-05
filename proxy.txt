@@ -49,3 +49,6 @@ https://raw.githubusercontent.com/databay-labs/free-proxy-list/master/socks5.txt
 https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt
 https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS4_RAW.txt
 https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt
+
+https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/refs/heads/main/http.txt
+https://cdn.jsdelivr.net/gh/ObcbO/getproxy/file/all.txt
