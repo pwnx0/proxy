@@ -1,19 +1,19 @@
 {
-  "updatedAt": "2026-06-20T06:55:49.965165+00:00",
+  "updatedAt": "2026-06-21T07:25:18.230485+00:00",
   "totalCandidates": 50000,
   "working": {
-    "http": 238,
-    "https": 173,
-    "socks4": 7,
-    "socks5": 20
+    "http": 235,
+    "https": 115,
+    "socks4": 6,
+    "socks5": 18
   },
-  "mixed": 427,
+  "mixed": 368,
   "settings": {
     "concurrency": 250,
     "checkTimeoutSeconds": 6,
     "maxProxiesPerRun": 50000,
     "minSuccesses": 3,
-    "sampleSeed": "2026-06-20",
+    "sampleSeed": "2026-06-21",
     "httpTestUrls": [
       "http://httpbin.org/ip",
       "http://www.gstatic.com/generate_204",
