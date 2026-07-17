@@ -67,7 +67,21 @@ jobs:
           git status --short
           if git diff --cached --quiet; then
             echo "No proxy output changes to commit."
-          else
-            git commit -m "Update working proxies"
-            git push
+            exit 0
           fi
+          git commit -m "Update working proxies"
+
+          attempt=1
+          max_attempts=5
+          until git push origin HEAD:main; do
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "Push still rejected after $attempt attempts, giving up."
+              exit 1
+            fi
+            echo "Push rejected (main moved), fetching and rebasing: attempt $attempt/$max_attempts"
+            git fetch origin main
+            git rebase origin/main
+            attempt=$((attempt + 1))
+            sleep $((attempt * 5))
+          done
+          echo "Pushed successfully on attempt $attempt."
