@@ -45,11 +45,13 @@ def env_urls(name: str, default: str) -> list[str]:
 
 HTTP_TEST_URLS = env_urls(
     "HTTP_TEST_URLS",
-    "http://httpbin.org/ip,http://www.gstatic.com/generate_204,http://example.com",
+    "http://www.gstatic.com/generate_204,http://detectportal.firefox.com/success.txt,"
+    "http://captive.apple.com,http://neverssl.com,http://example.com",
 )
 HTTPS_TEST_URLS = env_urls(
     "HTTPS_TEST_URLS",
-    "https://api.ipify.org?format=json,https://www.gstatic.com/generate_204,https://www.cloudflare.com/cdn-cgi/trace",
+    "https://www.gstatic.com/generate_204,https://www.cloudflare.com/cdn-cgi/trace,"
+    "https://1.1.1.1/cdn-cgi/trace,https://api.ipify.org?format=json,https://example.com",
 )
 BOT_TEST_URLS = env_urls("BOT_TEST_URLS", "")
 
@@ -240,7 +242,12 @@ async def check_socks(candidate: Candidate) -> bool:
     timeout = ClientTimeout(total=CHECK_TIMEOUT, connect=CHECK_TIMEOUT)
     target_urls = BOT_TEST_URLS + HTTPS_TEST_URLS
     try:
-        connector = ProxyConnector.from_url(candidate.proxy_url(), rdns=True)
+        # Plain SOCKS4 (unlike SOCKS4a/SOCKS5) mostly can't resolve hostnames
+        # server-side. Forcing rdns=True here made hostname-based checks fail
+        # against otherwise-working SOCKS4 proxies. Only request remote DNS
+        # resolution for protocols that reliably support it.
+        rdns = candidate.kind != "socks4"
+        connector = ProxyConnector.from_url(candidate.proxy_url(), rdns=rdns)
         async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
             return await check_with_session(
                 session,
