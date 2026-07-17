@@ -41,8 +41,8 @@ jobs:
           FETCH_TIMEOUT: "20"
           MAX_PROXIES_PER_RUN: "50000"
           MIN_SUCCESSES: "3"
-          HTTP_TEST_URLS: "http://httpbin.org/ip,http://www.gstatic.com/generate_204,http://example.com"
-          HTTPS_TEST_URLS: "https://api.ipify.org?format=json,https://www.gstatic.com/generate_204,https://www.cloudflare.com/cdn-cgi/trace"
+          HTTP_TEST_URLS: "http://www.gstatic.com/generate_204,http://detectportal.firefox.com/success.txt,http://captive.apple.com,http://neverssl.com,http://example.com"
+          HTTPS_TEST_URLS: "https://www.gstatic.com/generate_204,https://www.cloudflare.com/cdn-cgi/trace,https://1.1.1.1/cdn-cgi/trace,https://api.ipify.org?format=json,https://example.com"
           BOT_TEST_URLS: ""
         run: python -u scripts/check_proxies.py
 
